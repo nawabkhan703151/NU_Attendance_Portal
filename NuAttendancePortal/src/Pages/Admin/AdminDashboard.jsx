@@ -323,9 +323,15 @@ const AdminDashboard = () => {
               <div className="button-group">
                 <button
                   className="action-btn add-btn"
-                  onClick={() => navigate("/add-allocation")}
+                  onClick={() => navigate("/add-timetable")}
                 >
                   ADD
+                </button>
+                  <button
+                  className="action-btn view-btn"
+                  onClick={() => navigate("/view-timetable")}
+                >
+                  VIEW
                 </button>
               </div>
             </div>

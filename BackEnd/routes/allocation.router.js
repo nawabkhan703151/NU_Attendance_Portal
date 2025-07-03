@@ -90,7 +90,10 @@ const upload = multer({ dest: "uploads/" });
 router.post('/uploadAllocations', upload.single('excelFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded.' });
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded.'
+      });
     }
 
     const workbook = xlsx.readFile(req.file.path);
@@ -98,73 +101,120 @@ router.post('/uploadAllocations', upload.single('excelFile'), async (req, res) =
     const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
     if (rows.length === 0) {
-      return res.status(400).json({ success: false, message: 'Excel file is empty.' });
+      return res.status(400).json({
+        success: false,
+        message: 'Excel file is empty.'
+      });
     }
 
-    const results = [];
-    const validatedRows = []; // only valid rows go here
+    let results = [];
+    let validationErrors = false;
 
+    // ✅ First pass: Validate all rows
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowNum = i + 2;
 
       const sectionName = row['section_name']?.toString().trim();
-      const teacherEmail = row['teacher_email']?.toString().trim().toLowerCase();
-      const sessionName = row['session_name']?.toString().trim().toLowerCase();
+      const teacherEmail = row['teacher_email']?.toString().trim();
+      const sessionName = row['session_name']?.toString().trim();
       const courseCode = row['course_code']?.toString().trim();
       const courseNameExcel = row['course_name']?.toString().trim();
 
+      let result = { row: rowNum };
+
       if (!sectionName || !teacherEmail || !sessionName || !courseCode || !courseNameExcel) {
-        results.push({ row: rowNum, status: 'error', message: 'Missing required fields in this row.' });
+        result.status = 'error';
+        result.message = 'Missing required fields in this row.';
+        validationErrors = true;
+        results.push(result);
         continue;
       }
 
       const session = await Session.findOne({ session_name: sessionName });
       if (!session) {
-        results.push({ row: rowNum, status: 'error', message: `Session '${sessionName}' not found.` });
+        result.status = 'error';
+        result.message = `Session '${sessionName}' not found.`;
+        validationErrors = true;
+        results.push(result);
         continue;
       }
 
-      const teacher = await Teacher.findOne({ email: teacherEmail });
+      const teacher = await Teacher.findOne({ t_id: teacherEmail });
       if (!teacher) {
-        results.push({ row: rowNum, status: 'error', message: `Teacher with email '${teacherEmail}' not found.` });
+        result.status = 'error';
+        result.message = `Teacher with email '${teacherEmail}' not found.`;
+        validationErrors = true;
+        results.push(result);
         continue;
       }
 
       const course = await Course.findOne({ c_code: courseCode });
       if (!course) {
-        results.push({ row: rowNum, status: 'error', message: `Course with code '${courseCode}' not found.` });
+        result.status = 'error';
+        result.message = `Course with code '${courseCode}' not found.`;
+        validationErrors = true;
+        results.push(result);
         continue;
       }
 
-      const warnings = [];
       if (course.c_title.toLowerCase() !== courseNameExcel.toLowerCase()) {
-        warnings.push(`Course name mismatch. Excel: '${courseNameExcel}', DB: '${course.c_title}'.`);
+        result.status = 'warning';
+        result.message = `Course name mismatch. Excel: '${courseNameExcel}', DB: '${course.c_title}'.`;
+      } else {
+        result.status = 'validated';
+        result.message = 'Row validated successfully.';
       }
 
-      validatedRows.push({ rowNum, sectionName, teacher, session, course, warnings });
+      results.push(result);
     }
 
-    if (validatedRows.length === 0) {
+    // ❌ Stop insertion if validation failed
+    if (validationErrors) {
       return res.status(400).json({
         success: false,
         message: 'Validation failed. No data inserted.',
-        results,
+        results: results
       });
     }
 
-    for (const { rowNum, sectionName, teacher, session, course, warnings } of validatedRows) {
-      let allocation = await Allocation.findOne({ section_name: sectionName, session: session._id });
+    // ✅ Second pass: Insert or update allocations
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+
+      const sectionName = row['section_name']?.toString().trim();
+      const teacherEmail = row['teacher_email']?.toString().trim();
+      const sessionName = row['session_name']?.toString().trim();
+      const courseCode = row['course_code']?.toString().trim();
+
+      const session = await Session.findOne({ session_name: sessionName });
+      const teacher = await Teacher.findOne({ t_id: teacherEmail });
+      const course = await Course.findOne({ c_code: courseCode });
+
+      // ✅ Find or create result entry
+      let result = results.find(r => r.row === rowNum);
+      if (!result) {
+        result = { row: rowNum };
+        results.push(result);
+      }
+
+      let allocation = await Allocation.findOne({
+        section_name: sectionName,
+        session: session._id
+      });
 
       if (allocation) {
         const teacherExists = allocation.Teachers.includes(teacher._id);
         const courseExists = allocation.Courses.includes(course._id);
 
         let updated = false;
+
         if (!teacherExists) {
           allocation.Teachers.push(teacher._id);
           updated = true;
         }
+
         if (!courseExists) {
           allocation.Courses.push(course._id);
           updated = true;
@@ -172,9 +222,11 @@ router.post('/uploadAllocations', upload.single('excelFile'), async (req, res) =
 
         if (updated) {
           await allocation.save();
-          results.push({ row: rowNum, status: 'success', message: 'Allocation updated.', warnings });
+          result.status = 'success';
+          result.message = 'Allocation updated with new teacher or course.';
         } else {
-          results.push({ row: rowNum, status: 'skipped', message: 'Already exists.', warnings });
+          result.status = 'skipped';
+          result.message = 'Allocation already has this teacher and course.';
         }
       } else {
         const newAlloc = new Allocation({
@@ -184,14 +236,17 @@ router.post('/uploadAllocations', upload.single('excelFile'), async (req, res) =
           Courses: [course._id]
         });
         await newAlloc.save();
-        results.push({ row: rowNum, status: 'success', message: 'New allocation created.', warnings });
+
+        result.status = 'success';
+        result.message = 'New allocation created.';
       }
     }
 
+    // ✅ Final response
     res.status(200).json({
       success: true,
-      message: 'Allocation Excel processed.',
-      results,
+      message: 'Allocation Excel processed successfully.',
+      results: results
     });
 
   } catch (err) {
@@ -203,7 +258,6 @@ router.post('/uploadAllocations', upload.single('excelFile'), async (req, res) =
     });
   }
 });
-
 
 
 // ✅ GET all allocations

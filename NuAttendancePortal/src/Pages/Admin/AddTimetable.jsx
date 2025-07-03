@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { FaUpload, FaSave, FaArrowLeft, FaBook, FaList } from 'react-icons/fa';
 import '../../Styles/Admin/AddTimetable.css';
 
+// ✅ Room-style message popup
 const MessagePopup = ({ isOpen, onClose, message, type }) => {
   if (!isOpen) return null;
   return (
     <div className="modal-overlay">
       <div className="modal-content">
-        <h2 className="modal-title">{type === 'error' ? 'Oops!' : 'Success!'}</h2>
+        <h2 className="modal-title">{type === 'error' ? 'Oops!' : 'Upload Result'}</h2>
         <p className="modal-subtitle">{message}</p>
         <button className="modal-close-btn" onClick={onClose}>OK</button>
       </div>
@@ -24,21 +25,23 @@ const AddTimetable = () => {
   const [fileSelected, setFileSelected] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const [popupType, setPopupType] = useState('success');
   const [results, setResults] = useState([]);
 
   const validateFile = (file) => {
     if (!file) return;
     const extension = file.name.split('.').pop().toLowerCase();
     if (extension !== 'xlsx' && extension !== 'xls') {
-      setError('Only Excel files (.xlsx or .xls) are allowed');
+      setPopupMessage('Only Excel files (.xlsx or .xls) are allowed');
+      setPopupType('error');
+      setPopupOpen(true);
       setFile(null);
       setFileSelected(false);
     } else {
       setFile(file);
       setFileSelected(true);
-      setError('');
     }
   };
 
@@ -57,7 +60,9 @@ const AddTimetable = () => {
 
   const handleUpload = async () => {
     if (!file) {
-      setError('Please select a file to upload');
+      setPopupMessage('Please select a file to upload');
+      setPopupType('error');
+      setPopupOpen(true);
       return;
     }
 
@@ -66,34 +71,38 @@ const AddTimetable = () => {
       const formData = new FormData();
       formData.append('excelFile', file);
 
-      const res = await axios.post('http://localhost:4000/', formData, {
+      const res = await axios.post('http://localhost:4000/timetable/uploadTimetableExcel', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      const uploadResults = res.data.data || [];
+      const { insertedCount = 0, updatedCount = 0, failedCount = 0 } = res.data;
 
-      const inserted = uploadResults.filter(r => r.status === 'success').length;
-      const failed = uploadResults.filter(r => r.status === 'failed').length;
+      const summaryMessage = `Upload successful!\nInserted: ${insertedCount}, Updated: ${updatedCount}, Failed: ${failedCount}`;
+      setPopupMessage(summaryMessage);
+      setPopupType('success');
+      setPopupOpen(true);
 
-      setResults(uploadResults);
-      setSuccess(`Upload Completed!\nInserted: ${inserted}, Failed: ${failed}`);
-      setError('');
+      setResults([]);
       setFile(null);
       setFileSelected(false);
     } catch (err) {
       console.error('Upload error:', err);
       const msg = err.response?.data?.message || 'Upload failed. Try again.';
-      setError(msg);
-      setSuccess('');
+      const serverErrors = err.response?.data?.errors || [];
+
+      setResults(serverErrors);
+      setPopupMessage(msg);
+      setPopupType('error');
+      setPopupOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
   const closePopup = () => {
-    setError('');
-    setSuccess('');
-    setResults([]);
+    setPopupOpen(false);
+    setPopupMessage('');
+    setPopupType('success');
   };
 
   return (
@@ -148,23 +157,21 @@ const AddTimetable = () => {
 
           {results.length > 0 && (
             <div className="upload-results">
-              <h3>Upload Results:</h3>
+              <h3>Validation Errors:</h3>
               <table className="result-table">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Room ID</th>
-                    <th>Status</th>
-                    <th>Message</th>
+                    <th>Row</th>
+                    <th>Error Message</th>
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((res, i) => (
                     <tr key={i}>
                       <td>{i + 1}</td>
-                      <td>{res.roomid}</td>
-                      <td>{res.status}</td>
-                      <td>{res.message || res.error}</td>
+                      <td>{res.row || 'N/A'}</td>
+                      <td>{res.error}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,8 +180,8 @@ const AddTimetable = () => {
           )}
         </div>
 
-        <MessagePopup isOpen={!!error} onClose={closePopup} message={error} type="error" />
-        <MessagePopup isOpen={!!success} onClose={closePopup} message={success} type="success" />
+        {/* ✅ Unified popup for success/error */}
+        <MessagePopup isOpen={popupOpen} onClose={closePopup} message={popupMessage} type={popupType} />
       </div>
     </div>
   );

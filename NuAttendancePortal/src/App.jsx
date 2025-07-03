@@ -32,7 +32,8 @@ import AddRoom from './Pages/Admin/AddRoom';
 import ViewRoom from './Pages/Admin/ViewRoom';
 import AddAllocation from './Pages/Admin/AddAllocation';
 import ViewAllocation from './Pages/Admin/ViewAllocation';
-
+import AddTimeTable from './Pages/Admin/AddTimeTable';
+import ViewTimeTable from './Pages/Admin/ViewTimeTable';
 function App() {
   return (
     <Router>
@@ -68,6 +69,8 @@ function App() {
         <Route path="/view-room" element={<ViewRoom/>} />
         <Route path="/add-allocation" element={<AddAllocation/>} />
         <Route path="/view-allocation" element={<ViewAllocation/>} />
+        <Route path="/add-timetable" element={<AddTimeTable/>} />
+        <Route path="/view-timetable" element={<ViewTimeTable/>} />
         
 
       </Routes>

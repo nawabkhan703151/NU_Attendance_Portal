@@ -10,6 +10,10 @@ const Session = require("../model/session.js");
 const Room = require("../model/room.js");
 const moment = require("moment-timezone");
 const Department = require("../model/department.js");
+const multer = require("multer");
+const xlsx = require("xlsx"); 
+const fs = require("fs");
+const upload = multer({ dest: "uploads/" });
 
 // GET: Get timetable slots for a specific teacher and day
 // her teacher ka timetable fatch krey gi clander aur bydefault hood se b 
@@ -86,7 +90,177 @@ router.get('/teacher/:t_id/:day', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
- 
+
+ // Add timetable slot from Excel
+router.post('/uploadTimetableExcel', upload.single('excelFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ status: false, message: 'No file uploaded.' });
+    }
+
+    const workbook = xlsx.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+
+    const results = [];
+    const validTimetables = [];
+
+    // ✅ Function to convert Excel float time to formatted string
+    const excelTimeToString = (excelTime) => {
+      if (typeof excelTime === 'number') {
+        const totalMinutes = Math.round(excelTime * 24 * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+        return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      }
+      return excelTime;
+    };
+
+    // ✅ Get last timetable_id only once
+    let lastNumber = 0;
+    const lastTimetable = await Timetable.findOne({}).sort({ timetable_id: -1 }).lean();
+    if (lastTimetable && lastTimetable.timetable_id) {
+      const match = lastTimetable.timetable_id.match(/\d+/);
+      if (match) lastNumber = parseInt(match[0]);
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNumber = i + 2; // header row is 1-based
+
+      const day = String(row.Day).trim();
+      const roomName = String(row.Room_name).trim();
+      const timeFrom = excelTimeToString(row.TimeFrom);
+      const timeTo = excelTimeToString(row.TimeTo);
+      const teacherEmailsRaw = String(row.Teacher_emails).trim();
+      const sessionName = String(row.session_Name).trim();
+      const courseCode = String(row.Course_Code).trim();
+
+      const errors = [];
+
+      if (!day) errors.push('Missing Day');
+      if (!roomName) errors.push('Missing Room_name');
+      if (!timeFrom) errors.push('Missing TimeFrom');
+      if (!timeTo) errors.push('Missing TimeTo');
+      if (!teacherEmailsRaw) errors.push('Missing Teacher_emails');
+      if (!sessionName) errors.push('Missing session_Name');
+      if (!courseCode) errors.push('Missing Course_Code');
+
+      if (errors.length > 0) {
+        results.push({ row: rowNumber, status: 'failed', message: errors.join(', ') });
+        continue;
+      }
+
+      try {
+        // ✅ Validate Room
+        const room = await Room.findOne({ RoomName: new RegExp(`^${roomName}$`, 'i') });
+        if (!room) {
+          results.push({ row: rowNumber, status: 'failed', message: `Room '${roomName}' not found.` });
+          continue;
+        }
+
+        // ✅ Validate Teachers by t_id
+        const teacherEmails = teacherEmailsRaw.split(',').map(e => e.trim());
+        const teachers = await Teacher.find({ t_id: { $in: teacherEmails } });
+
+        const foundEmails = teachers.map(t => t.t_id);
+        const missingEmails = teacherEmails.filter(e => !foundEmails.includes(e));
+
+        if (missingEmails.length > 0) {
+          results.push({ row: rowNumber, status: 'failed', message: `Teacher t_id not found: ${missingEmails.join(', ')}` });
+          continue;
+        }
+
+        // ✅ Validate Session
+        const session = await Session.findOne({ session_name: sessionName });
+        if (!session) {
+          results.push({ row: rowNumber, status: 'failed', message: `Session '${sessionName}' not found.` });
+          continue;
+        }
+
+        // ✅ Validate Course
+        const course = await Course.findOne({ c_code: courseCode });
+        if (!course) {
+          results.push({ row: rowNumber, status: 'failed', message: `Course code '${courseCode}' not found.` });
+          continue;
+        }
+
+        // ✅ Generate timetable_id
+        lastNumber += 1;
+        const timetable_id = lastNumber.toString().padStart(4, '0');
+
+        // ✅ Prepare valid timetable entry
+        validTimetables.push({
+          timetable_id,
+          Day: day,
+          Room: room._id,
+          TimeFrom: timeFrom,
+          TimeTo: timeTo,
+          Teachers: teachers.map(t => t._id),
+          session: session._id,
+          Courses: [course._id],
+        });
+
+        results.push({
+          row: rowNumber,
+          status: 'success',
+          message: `Timetable validated. Assigned ID: ${timetable_id}`
+        });
+
+      } catch (innerErr) {
+        console.error(`Row ${rowNumber} processing error:`, innerErr);
+        results.push({
+          row: rowNumber,
+          status: 'failed',
+          message: `Internal error processing this row: ${innerErr.message}`
+        });
+      }
+    }
+
+    // ✅ Delete file after processing
+    fs.unlink(req.file.path, (err) => {
+      if (err) console.error('Error deleting uploaded file:', err.message);
+    });
+
+    // ✅ Return if any failed rows
+    const hasErrors = results.some(r => r.status === 'failed');
+    if (hasErrors) {
+      return res.status(400).json({
+        status: false,
+        message: 'Validation completed with errors. No data inserted.',
+        results
+      });
+    }
+
+    // ✅ Insert all valid timetables
+    await Timetable.insertMany(validTimetables);
+
+    // ✅ Count summary
+    const insertedCount = validTimetables.length;
+    const failedCount = results.filter(r => r.status === 'failed').length;
+
+    return res.status(200).json({
+      status: true,
+      message: 'All timetables uploaded successfully.',
+      insertedCount,
+      failedCount,
+      updatedCount: 0, // Currently no updates; can be modified if needed later
+      results
+    });
+
+  } catch (err) {
+    console.error('Upload Timetable Excel API error:', err);
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(500).json({
+      status: false,
+      message: 'Server error while uploading timetables.',
+      error: err.message
+    });
+  }
+});
+
 
 
 // for timetable slot creation
@@ -547,9 +721,6 @@ router.get('/student/:st_id', async (req, res) => {
     return res.status(500).json({ status: false, message: 'Server error' });
   }
 });
-
-
-
 
 
 module.exports = router;
