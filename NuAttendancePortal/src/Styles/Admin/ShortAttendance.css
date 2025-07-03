@@ -1,0 +1,431 @@
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+}
+
+body {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.7);
+  z-index: -1;
+}
+
+/* Dashboard Layout */
+.teacher-dashboard {
+  min-height: 100vh;
+  display: flex;
+  position: relative;
+}
+
+.page-titles {
+  position: fixed;
+  top: 1rem;
+  left: 270px;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  background: #1e293b;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.logout-link {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #4def44;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.logout-link:hover {
+  background: #160659;
+  transform: scale(1.05);
+}
+
+.link-icon {
+  font-size: 1.2rem;
+}
+
+/* Sidebar Styles */
+.sidebar {
+  width: 256px;
+  background: #1e293b;
+  padding: 1.5rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 900;
+}
+
+.logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #334155;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #334155;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  background: #475569;
+  transform: scale(1.05);
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1;
+  padding: 6rem 2rem 2rem;
+  margin-left: 256px;
+}
+
+/* Attendance Section */
+.attendance-section {
+  background: rgba(30, 41, 59, 0.9);
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+  margin-bottom: 2rem;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #93c5fd;
+  margin-bottom: 1.5rem;
+}
+
+/* Filter Controls */
+.filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 180px;
+}
+
+.filter-group label {
+  color: #93c5fd;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.filter-group select {
+  padding: 0.75rem;
+  background: #334155;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #475569;
+}
+
+.filter-group select:hover {
+  background: #475569;
+}
+
+.filter-group select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #93c5fd;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.view-btn, .view-all-btn, .print-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-btn {
+  background: #4def44;
+}
+
+.view-btn:hover {
+  background: #3bd132;
+  transform: scale(1.05);
+}
+
+.view-all-btn {
+  background: #1a73e8;
+}
+
+.view-all-btn:hover {
+  background: #1557b0;
+  transform: scale(1.05);
+}
+
+.print-btn {
+  background: #8b5cf6;
+}
+
+.print-btn:hover {
+  background: #7c3aed;
+  transform: scale(1.05);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+}
+
+/* Table Styles */
+.table-container {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: rgba(30, 41, 59, 0.7);
+  padding: 1rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table thead tr {
+  background: #334155;
+}
+
+.data-table th {
+  padding: 1rem;
+  text-align: left;
+  color: #93c5fd;
+  font-weight: 600;
+  border-bottom: 2px solid #475569;
+}
+
+.data-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.data-table tbody tr:hover {
+  background: #475569;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-top: 1px solid #334155;
+  color: #ffffff;
+}
+
+/* Status Indicators */
+.low-attendance {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.moderate-attendance {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Empty State */
+.loading-text {
+  text-align: center;
+  padding: 2rem;
+  color: #93c5fd;
+  font-style: italic;
+}
+
+/* Print Styles */
+@media print {
+  .sidebar, .logout-link, .filter-container, .action-buttons, .page-titles {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .attendance-section {
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .table-container {
+    background: none;
+    padding: 0;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th, .data-table td {
+    border: 1px solid #000;
+    padding: 8px;
+    color: #000;
+  }
+
+  .data-table thead tr {
+    background: #f0f0f0;
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: #fff;
+  }
+
+  .section-title {
+    color: #000;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .low-attendance, .moderate-attendance {
+    font-weight: bold;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Styles */
+@media (max-width: 1024px) {
+  .filter-container {
+    gap: 1rem;
+  }
+  
+  .filter-group {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 5rem 1rem 1rem;
+  }
+
+  .page-titles {
+    font-size: 2rem;
+    left: 1rem;
+    right: 1rem;
+    text-align: center;
+  }
+
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-titles {
+    font-size: 1.5rem;
+    padding: 0.5rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .view-btn, .view-all-btn, .print-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .filter-group select {
+    padding: 0.5rem;
+  }
+}
